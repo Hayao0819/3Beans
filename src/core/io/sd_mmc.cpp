@@ -235,6 +235,10 @@ void SdMmc::runCommand() {
         LOG_WARN("Stubbed %s port %d command: CMD%d\n", (sdPortSelect & BIT(0)) ? "MMC" : "SD", id, cmd);
         return pushResponse(0x80000000);
 
+    case 5: // IO_SEND_OP_COND
+        // Time out like a memory card, which doesn't answer SDIO commands
+        return sendInterrupt(22);
+
     default:
         // Assume response R1 for unknown commands
         LOG_WARN("Unknown %s port %d command: CMD%d\n", (sdPortSelect & BIT(0)) ? "MMC" : "SD", id, cmd);
@@ -341,8 +345,8 @@ void SdMmc::sdStatus() {
 }
 
 void SdMmc::sdSendOpCond() {
-    // Set the SD voltage window and return it along with high-capacity status
-    opCond = (opCond & ~0xFFFFFF) | (sdCmdParam & 0xFFFFFF);
+    // Report the card's own voltage window rather than echoing the host's request
+    opCond = 0x80FF8000;
     pushResponse(opCond | ((~sdPortSelect & sdhc) << 30));
 }
 

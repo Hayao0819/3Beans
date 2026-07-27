@@ -69,7 +69,7 @@ private:
     FILE *sd = nullptr;
     bool sdhc = false;
 
-    uint32_t cardStatus = 0;
+    uint32_t cardStatus = BIT(8); // ready for data
     uint32_t opCond = 0x80000000;
     uint32_t blockLen = 0;
     uint32_t curAddress = 0;
