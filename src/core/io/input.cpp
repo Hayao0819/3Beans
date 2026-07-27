@@ -101,13 +101,16 @@ uint8_t Input::spiTransfer(uint8_t value) {
         // Read a value containing the touch pressed bit
         return (touchActive << 7);
 
-    case 0xFB03: // Touch/stick data
+    case 0xFB03: { // Touch/stick data
         // Read the touch and stick coordinates, with slight variation for touches
-        if (spiTotal <= 11) return (touchX + ((spiTotal >> 1) & 0x1)) >> ((~spiTotal & 0x1) * 8);
-        if (spiTotal <= 21) return (touchY + ((spiTotal >> 1) & 0x1)) >> ((~spiTotal & 0x1) * 8);
+        // Samples signal pen up with bit 12, which the driver checks to detect a press
+        uint16_t penUp = touchActive ? 0 : BIT(12);
+        if (spiTotal <= 11) return ((touchX + ((spiTotal >> 1) & 0x1)) | penUp) >> ((~spiTotal & 0x1) * 8);
+        if (spiTotal <= 21) return ((touchY + ((spiTotal >> 1) & 0x1)) | penUp) >> ((~spiTotal & 0x1) * 8);
         if (spiTotal <= 37) return stickLY >> ((~spiTotal & 0x1) * 8);
         if (spiTotal <= 53) return stickLX >> ((~spiTotal & 0x1) * 8);
         return 0;
+    }
 
     default:
         // Catch SPI bus 1 accesses with unknown registers
