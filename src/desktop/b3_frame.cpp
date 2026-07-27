@@ -35,6 +35,7 @@ enum FrameEvent {
     STOP,
     SET_HARDWARE,
     DEBUGGER,
+    POWER_BUTTON,
     FPS_LIMITER,
     CART_AUTO_BOOT,
     MUTE,
@@ -55,6 +56,7 @@ EVT_MENU(RESTART, b3Frame::restart)
 EVT_MENU(STOP, b3Frame::stop)
 EVT_MENU(SET_HARDWARE, b3Frame::setHardware)
 EVT_MENU(DEBUGGER, b3Frame::debugger)
+EVT_MENU(POWER_BUTTON, b3Frame::powerButton)
 EVT_MENU(FPS_LIMITER, b3Frame::fpsLimiter)
 EVT_MENU(MUTE, b3Frame::mute)
 EVT_MENU(CART_AUTO_BOOT, b3Frame::cartAutoBoot)
@@ -82,6 +84,7 @@ b3Frame::b3Frame(): wxFrame(nullptr, wxID_ANY, "3Beans") {
     systemMenu->Append(RESTART, "&Restart");
     systemMenu->Append(STOP, "&Stop");
     systemMenu->AppendSeparator();
+    systemMenu->Append(POWER_BUTTON, "Po&wer Button");
     systemMenu->Append(SET_HARDWARE, "&Set Hardware");
     systemMenu->Append(DEBUGGER, "&Debugger");
 
@@ -382,6 +385,13 @@ void b3Frame::restart(wxCommandEvent &event) {
 void b3Frame::stop(wxCommandEvent &event) {
     // Stop the core
     stopCore(true);
+}
+
+void b3Frame::powerButton(wxCommandEvent &event) {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!core) return;
+    core->input.pressPower();
+    core->input.releasePower();
 }
 
 void b3Frame::debugger(wxCommandEvent &event) {

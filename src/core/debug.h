@@ -56,6 +56,7 @@ namespace Debug {
     struct Cp15Reg { const char *name; uint32_t value; };
     std::vector<Cp15Reg> cp15Regs(Core *core, int cpu);
 
+    std::string mcuState(Core *core);
     std::string faultList(Core *core, int limit, bool first);
     std::string traceList(int limit);
     void traceArm();

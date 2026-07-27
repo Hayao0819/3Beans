@@ -152,6 +152,13 @@ std::vector<Cp15Reg> cp15Regs(Core *core, int cpu) {
     return out;
 }
 
+std::string mcuState(Core *core) {
+    char buf[96];
+    snprintf(buf, sizeof(buf), "MCU IRQ flags = %08x\nMCU IRQ mask  = %08x\n",
+        core->i2c.getMcuIrqFlags(), core->i2c.getMcuIrqMask());
+    return buf;
+}
+
 std::string faultList(Core *core, int limit, bool first) {
     uint32_t total = core->faultCount.load();
     if (!total) return "no faults recorded\n";

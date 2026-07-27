@@ -339,6 +339,27 @@ private:
             return mcp::ToolResult::ok(action + " " + key);
         });
 
+        server.tool("emu_mcu", "Dump the MCU interrupt flags and mask. Bit 0/1 are the power button "
+            "press/release, 2/3 home, 4/5 wireless; a set mask bit means the guest is ignoring it.",
+            noArgs, [this](const mcp::Json&) {
+            return withCore([&](Core *core) { return mcp::ToolResult::ok(Debug::mcuState(core)); });
+        });
+
+        server.tool("emu_power", "Press the 3DS power button, which the MCU reports as KEY_POWER. "
+            "action: tap, press, or release.",
+            "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"default\":\"tap\"},"
+            "\"hold_ms\":{\"type\":\"integer\",\"default\":150}}}",
+            [this](const mcp::Json &args) {
+            std::string action = args["action"].toStr("tap");
+            int holdMs = (int)args["hold_ms"].toInt(150);
+            return withCore([&](Core *core) {
+                if (action == "press" || action == "tap") core->input.pressPower();
+                if (action == "tap") std::this_thread::sleep_for(std::chrono::milliseconds(holdMs));
+                if (action == "release" || action == "tap") core->input.releasePower();
+                return mcp::ToolResult::ok(action + " power");
+            });
+        });
+
         server.tool("emu_touch", "Touch the bottom screen at (x, y) in 0-319/0-239, or release with release=true.",
             "{\"type\":\"object\",\"properties\":{\"x\":{\"type\":\"integer\"},\"y\":{\"type\":\"integer\"},"
             "\"release\":{\"type\":\"boolean\",\"default\":false}}}",

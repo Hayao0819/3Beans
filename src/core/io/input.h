@@ -35,6 +35,8 @@ public:
 
     void pressHome();
     void releaseHome();
+    void pressPower();
+    void releasePower();
     void updateHome();
 
     uint32_t readSpiFifoCnt() { return spiFifoCnt; }
@@ -55,6 +57,7 @@ public:
 private:
     Core &core;
     uint8_t homeState = 0;
+    uint8_t powerState = 0;
 
     uint16_t stickLX = 0x7FF;
     uint16_t stickLY = 0x7FF;

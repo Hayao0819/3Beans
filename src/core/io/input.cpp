@@ -60,12 +60,27 @@ void Input::releaseHome() {
     homeState |= BIT(1);
 }
 
+void Input::pressPower() {
+    // Set a bit to request a power button press
+    powerState |= BIT(0);
+}
+
+void Input::releasePower() {
+    // Set a bit to request a power button release
+    powerState |= BIT(1);
+}
+
 void Input::updateHome() {
-    // Trigger MCU interrupts for home button presses and releases
+    // Trigger MCU interrupts for home and power button presses and releases
     for (int i = 0; i < 2; i++) {
-        if (~homeState & BIT(i)) continue;
-        core.i2c.mcuInterrupt(BIT(2 + i));
-        homeState &= ~BIT(i);
+        if (homeState & BIT(i)) {
+            core.i2c.mcuInterrupt(BIT(2 + i));
+            homeState &= ~BIT(i);
+        }
+        if (powerState & BIT(i)) {
+            core.i2c.mcuInterrupt(BIT(i));
+            powerState &= ~BIT(i);
+        }
     }
 }
 
