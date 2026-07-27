@@ -36,6 +36,9 @@ int b3App::keyBinds[] = {
 };
 
 bool b3App::OnInit() {
+    // Don't abort on wx asserts, so an EGL failure falls back to software rendering
+    wxSetAssertHandler(nullptr);
+
     // Define and add platform-specific settings
     std::vector<Setting> platSettings = {
         Setting("audBufSize", &audBufSize, false),

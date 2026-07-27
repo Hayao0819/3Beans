@@ -79,8 +79,10 @@ void b3CanvasOgl::coreContext() {
     // Toggle the core's context on a thread
     if (toggle = !toggle)
         coreCanvas->SetCurrent(*contexts[1]);
+#if wxCHECK_VERSION(3, 3, 0)
     else
-        wxGLContext::ClearCurrent();
+        wxGLContext::ClearCurrent(); // ClearCurrent arrived in wx 3.3
+#endif
 }
 
 void b3CanvasOgl::glInit() {
