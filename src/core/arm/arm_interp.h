@@ -24,11 +24,21 @@
 
 class Core;
 
+// Thrown when an ARM11 access fails MMU translation or permission checks
+struct CpuFault {
+    uint32_t address;
+    uint8_t domain;
+    uint8_t status; // FSR fault status
+    bool write;
+    bool prefetch;
+};
+
 class ArmInterp {
 public:
     uint8_t halted = 0;
     uint32_t cpsr = 0;
     uint32_t *registers[32] = {};
+    uint32_t instrAddr = 0; // address of the instruction currently executing
 
     ArmInterp(Core &core, CpuId id);
     void init();
@@ -40,6 +50,7 @@ public:
     void halt(uint8_t mask);
     void unhalt(uint8_t mask);
     int exception(uint8_t vector);
+    void takeFault(const CpuFault &fault);
     void invalidatePc() { pcData = nullptr; }
 
 private:
@@ -62,6 +73,10 @@ private:
 
     uint8_t *pcData = nullptr;
     uint32_t pipeline[2] = {};
+    uint8_t pipeFault = 0; // one bit per pipeline slot whose fetch aborted
+    bool fetchFault = false; // set by a fetch that couldn't be resolved
+    uint32_t *baseReg = nullptr; // base register of the running transfer, if any
+    uint32_t baseVal = 0;
     uint64_t cycles = 0;
     uint64_t excValue = 0;
     uint32_t excAddress = 0;

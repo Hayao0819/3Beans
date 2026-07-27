@@ -62,8 +62,15 @@ template <bool cores, bool dsp> void ArmInterp::runFrame(Core &core) {
         while (core.events[0].cycles > core.globalCycles) {
             // Run 2 or 4 ARM11 cores depending on what's enabled
             for (int i = 0; i < (cores ? 4 : 2); i++)
-                if (core.globalCycles >= core.arms[i].cycles)
-                    core.arms[i].cycles = core.globalCycles + core.arms[i].runOpcode();
+                if (core.globalCycles >= core.arms[i].cycles) {
+                    try {
+                        core.arms[i].cycles = core.globalCycles + core.arms[i].runOpcode();
+                    }
+                    catch (const CpuFault &fault) {
+                        core.arms[i].takeFault(fault);
+                        core.arms[i].cycles = core.globalCycles + 3;
+                    }
+                }
 
             // Run the ARM9 at half the speed of the ARM11
             if (core.globalCycles >= core.arms[ARM9].cycles)
@@ -97,14 +104,37 @@ template <bool cores, bool dsp> void ArmInterp::runFrame(Core &core) {
 }
 
 FORCE_INLINE int ArmInterp::runOpcode() {
+    // Take a prefetch abort once execution reaches an instruction that couldn't be fetched
+    baseReg = nullptr;
+    instrAddr = *registers[15] - ((cpsr & BIT(5)) ? 2 : 4);
+    if (pipeFault & BIT(0))
+        core.cp15.raiseFetchFault(id, instrAddr);
+
+    // Trace ARM11 execution, freezing the ring when user mode executes a zero opcode
+    if (Core::traceOn && id <= ARM11B)
+        Core::traceStep(instrAddr, cpsr, id, (cpsr & 0x1F) == 0x10 && pipeline[0] == 0);
+
     // Push the next opcode through the pipeline
     uint32_t opcode = pipeline[0];
     pipeline[0] = pipeline[1];
+    pipeFault >>= 1;
+    fetchFault = false;
 
     // Execute an instruction
     if (cpsr & BIT(5)) { // THUMB mode
         // Increment the program counter and fill the pipeline from pointer or fallback
         pipeline[1] = (((*registers[15] += 2) & 0xFFE) && pcData) ? U8TO16(pcData += 2, 0) : getOpcode16();
+        if (fetchFault) pipeFault |= BIT(1);
+
+        // Remember the base register of a transfer so an abort can restore it
+        uint32_t form = opcode >> 12;
+        if (form - 0x5 < 0x5) // Register or immediate offset, or SP-relative
+            baseReg = registers[(form == 0x9) ? 13 : ((opcode >> 3) & 0x7)];
+        else if (form == 0xC) // Block transfer
+            baseReg = registers[(opcode >> 8) & 0x7];
+        else if (form == 0xB && (opcode & 0x600) == 0x400) // Push or pop
+            baseReg = registers[13];
+        if (baseReg) baseVal = *baseReg;
 
         // Execute a THUMB instruction
         return (this->*thumbInstrs[(opcode >> 6) & 0x3FF])(opcode);
@@ -112,6 +142,15 @@ FORCE_INLINE int ArmInterp::runOpcode() {
     else { // ARM mode
         // Increment the program counter and fill the pipeline from pointer or fallback
         pipeline[1] = (((*registers[15] += 4) & 0xFFC) && pcData) ? U8TO32(pcData += 4, 0) : getOpcode32();
+        if (fetchFault) pipeFault |= BIT(1);
+
+        // Remember the base register of a transfer so an abort can restore it
+        uint32_t form = (opcode >> 25) & 0x7;
+        if (form == 0x2 || form == 0x3 || form == 0x4 || form == 0x6 || // Single, block, coprocessor
+                (form == 0x0 && (opcode & 0x90) == 0x90)) { // Extra load/store, swap, exclusive
+            uint8_t rn = (opcode >> 16) & 0xF;
+            if (rn != 15) baseVal = *(baseReg = registers[rn]);
+        }
 
         // Execute an ARM instruction based on its condition
         switch (condition[((opcode >> 24) & 0xF0) | (cpsr >> 28)]) {
@@ -124,16 +163,24 @@ FORCE_INLINE int ArmInterp::runOpcode() {
 
 uint16_t ArmInterp::getOpcode16() {
     // Set the opcode pointer or fall back to a regular 16-bit opcode read
-    if (!(pcData = core.cp15.getReadPtr(id, *registers[15])))
+    fetchFault = false;
+    if (!(pcData = core.cp15.getReadPtr(id, *registers[15]))) {
+        // Flag a fetch that aborts, since the pipeline runs ahead of execution
+        if ((fetchFault = core.cp15.fetchWouldFault(id, *registers[15]))) return 0;
         return core.cp15.read<uint16_t>(id, *registers[15]);
+    }
     pcData += (*registers[15] & 0xFFE);
     return U8TO16(pcData, 0);
 }
 
 uint32_t ArmInterp::getOpcode32() {
     // Set the opcode pointer or fall back to a regular 32-bit opcode read
-    if (!(pcData = core.cp15.getReadPtr(id, *registers[15])))
+    fetchFault = false;
+    if (!(pcData = core.cp15.getReadPtr(id, *registers[15]))) {
+        // Flag a fetch that aborts, since the pipeline runs ahead of execution
+        if ((fetchFault = core.cp15.fetchWouldFault(id, *registers[15]))) return 0;
         return core.cp15.read<uint32_t>(id, *registers[15]);
+    }
     pcData += (*registers[15] & 0xFFC);
     return U8TO32(pcData, 0);
 }
@@ -164,15 +211,36 @@ int ArmInterp::exception(uint8_t vector) {
     return 3;
 }
 
+void ArmInterp::takeFault(const CpuFault &fault) {
+    // Restore the transfer's base register, as ARMv6 uses the base restored abort model
+    if (baseReg) *baseReg = baseVal;
+
+    // Enter the abort vector with a link register pointing back at the faulting instruction
+    core.logFault(fault.prefetch ? 3 : 2, id, instrAddr, fault.address, fault.status);
+    core.cp15.setFault(id, fault);
+    setCpsr((cpsr & ~0x3F) | BIT(8) | BIT(7) | 0x17, true); // ARM, interrupts off, abort mode
+    *registers[14] = instrAddr + (fault.prefetch ? 4 : 8);
+    *registers[15] = core.cp15.exceptAddrs[id] + (fault.prefetch ? 0x0C : 0x10);
+    flushPipeline();
+}
+
 void ArmInterp::flushPipeline() {
-    // Adjust the program counter and refill the pipeline after a jump
+    // Adjust the program counter and refill the pipeline after a jump,
+    // tracking which slots hold instructions that couldn't be fetched
+    pipeFault = 0;
     if (cpsr & BIT(5)) { // THUMB mode
-        pipeline[0] = core.cp15.read<uint16_t>(id, *registers[15] &= ~0x1);
+        *registers[15] &= ~0x1;
+        pipeline[0] = getOpcode16();
+        if (fetchFault) pipeFault |= BIT(0);
         *registers[15] += 2, pipeline[1] = getOpcode16();
+        if (fetchFault) pipeFault |= BIT(1);
     }
     else { // ARM mode
-        pipeline[0] = core.cp15.read<uint32_t>(id, *registers[15] &= ~0x3);
+        *registers[15] &= ~0x3;
+        pipeline[0] = getOpcode32();
+        if (fetchFault) pipeFault |= BIT(0);
         *registers[15] += 4, pipeline[1] = getOpcode32();
+        if (fetchFault) pipeFault |= BIT(1);
     }
 }
 
@@ -281,6 +349,7 @@ int ArmInterp::handleReserved(uint32_t opcode) {
 
 int ArmInterp::unkArm(uint32_t opcode) {
     // Handle an unknown ARM opcode
+    core.logFault(0, id, *registers[15] - 8, opcode);
     if (id == ARM9)
         LOG_CRIT("Unknown ARM9 ARM opcode: 0x%X\n", opcode);
     else
@@ -290,6 +359,7 @@ int ArmInterp::unkArm(uint32_t opcode) {
 
 int ArmInterp::unkThumb(uint16_t opcode) {
     // Handle an unknown THUMB opcode
+    core.logFault(1, id, *registers[15] - 4, opcode);
     if (id == ARM9)
         LOG_CRIT("Unknown ARM9 THUMB opcode: 0x%X\n", opcode);
     else

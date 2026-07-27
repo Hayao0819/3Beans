@@ -28,15 +28,17 @@ template void Cp15::write(CpuId, uint32_t, uint16_t);
 template void Cp15::write(CpuId, uint32_t, uint32_t);
 
 uint8_t *Cp15::getReadPtr(CpuId id, uint32_t address) {
-    // Get a readable memory pointer to use for caching
+    // Get a readable memory pointer to use for instruction fetching
     if (id == ARM9) return tcmMap[address >> 12].read;
     if (!mmuEnables[id]) return core.memory.memMap11[address >> 12].read;
     MmuMap &map = mmuMaps[id][address >> 12];
     if (map.tag != mmuTags[id]) updateEntry(id, address);
+    uint32_t need = ((core.arms[id].cpsr & 0x1F) == 0x10) ? MMU_UR : MMU_PR;
+    if (!checkAccess(id, map.addr, need) || (map.addr & MMU_XN)) return nullptr;
     return map.read;
 }
 
-uint32_t Cp15::mmuTranslate(CpuId id, uint32_t address) {
+uint32_t Cp15::mmuWalk(CpuId id, uint32_t address, uint32_t &flags) {
     // Check control value X to determine the table base address
     uint32_t base;
     if (tlbCtrlRegs[id]) {
@@ -49,30 +51,99 @@ uint32_t Cp15::mmuTranslate(CpuId id, uint32_t address) {
         base = (tlbBase0Regs[id] & 0xFFFFC000);
     }
 
-    // Translate a virtual address to physical using MMU translation tables
-    // TODO: handle all the extra bits
+    // Map the AP and APX bits to permissions, using the ARMv6 extended page table format
+    static const uint8_t perms[8] = {
+        0, MMU_PR | MMU_PW, MMU_PR | MMU_PW | MMU_UR, MMU_PR | MMU_PW | MMU_UR | MMU_UW,
+        0, MMU_PR, MMU_PR | MMU_UR, MMU_PR | MMU_UR
+    };
+
+    // Walk the translation tables, returning the physical page and its permissions
     uint32_t entry = core.memory.read<uint32_t>(id, base + ((address >> 18) & 0x3FFC));
+    uint32_t domain = ((entry >> 5) & 0xF) << MMU_DOMAIN;
     switch (entry & 0x3) {
-    case 0x1: // Coarse
+    case 0x1: // Coarse page table
         entry = core.memory.read<uint32_t>(id, (entry & 0xFFFFFC00) + ((address >> 10) & 0x3FC));
+        flags = MMU_PAGE | domain | perms[((entry >> 7) & 0x4) | ((entry >> 4) & 0x3)];
         switch (entry & 0x3) {
         case 0x1: // 64KB large page
-            return (entry & 0xFFFF0000) | (address & 0xFFFF);
+            flags |= MMU_VALID | ((entry & BIT(15)) ? MMU_XN : 0);
+            return (entry & 0xFFFF0000) | (address & 0xF000);
         case 0x2: case 0x3: // 4KB small page
-            return (entry & 0xFFFFF000) | (address & 0xFFF);
+            flags |= MMU_VALID | ((entry & BIT(0)) ? MMU_XN : 0);
+            return (entry & 0xFFFFF000);
         }
-        break;
+        break; // Page translation fault
 
     case 0x2: // Section
-        if (entry & BIT(18)) // 16MB supersection
-            return (entry & 0xFF000000) | (address & 0xFFFFFF);
-        else // 1MB section
-            return (entry & 0xFFF00000) | (address & 0xFFFFF);
-    }
+        flags = MMU_VALID | perms[((entry >> 13) & 0x4) | ((entry >> 10) & 0x3)] |
+            ((entry & BIT(4)) ? MMU_XN : 0);
+        if (entry & BIT(18)) // 16MB supersection, which always uses domain 0
+            return (entry & 0xFF000000) | (address & 0xFFF000);
+        flags |= domain;
+        return (entry & 0xFFF00000) | (address & 0xFF000);
 
-    // Catch unhandled translation table entries
-    LOG_CRIT("Unhandled ARM11 core %d MMU translation fault at 0x%X\n", id, address);
-    return address;
+    default: // Section translation fault
+        flags = 0;
+        break;
+    }
+    return 0;
+}
+
+uint32_t Cp15::mmuTranslate(CpuId id, uint32_t address) {
+    // Translate a virtual address to physical, leaving it alone if translation faults
+    uint32_t flags;
+    uint32_t physical = mmuWalk(id, address, flags);
+    return (flags & MMU_VALID) ? (physical | (address & 0xFFF)) : address;
+}
+
+bool Cp15::checkAccess(CpuId id, uint32_t flags, uint32_t need) {
+    // Check an access against the domain's access type and the entry's permissions
+    if (~flags & MMU_VALID) return false; // A manager domain still can't fix a bad translation
+    switch ((dacRegs[id] >> (((flags >> MMU_DOMAIN) & 0xF) << 1)) & 0x3) {
+    case 0x0: return false; // No access
+    case 0x3: return true; // Manager, so permissions aren't checked
+    default: return (flags & need); // Client
+    }
+}
+
+void Cp15::throwFault(CpuId id, uint32_t address, uint32_t flags, bool write, bool prefetch) {
+    // Classify a failed access and hand it to the CPU as an abort
+    uint8_t status;
+    if (~flags & MMU_VALID) // Translation
+        status = (flags & MMU_PAGE) ? 0x7 : 0x5;
+    else if (!((dacRegs[id] >> (((flags >> MMU_DOMAIN) & 0xF) << 1)) & 0x3)) // Domain
+        status = (flags & MMU_PAGE) ? 0xB : 0x9;
+    else // Permission
+        status = (flags & MMU_PAGE) ? 0xF : 0xD;
+    throw CpuFault { address, uint8_t((flags >> MMU_DOMAIN) & 0xF), status, write, prefetch };
+}
+
+void Cp15::setFault(CpuId id, const CpuFault &fault) {
+    // Record a fault's status and address for the abort handler to read
+    if (fault.prefetch) {
+        ifsr[id] = fault.status | (fault.domain << 4);
+        ifar[id] = fault.address;
+    }
+    else {
+        dfsr[id] = fault.status | (fault.domain << 4) | (fault.write ? BIT(11) : 0);
+        dfar[id] = fault.address;
+    }
+}
+
+bool Cp15::fetchWouldFault(CpuId id, uint32_t address) {
+    // Check if fetching an instruction would abort, without taking the fault yet
+    if (id == ARM9 || !mmuEnables[id]) return false;
+    MmuMap &map = mmuMaps[id][address >> 12];
+    if (map.tag != mmuTags[id]) updateEntry(id, address);
+    uint32_t need = ((core.arms[id].cpsr & 0x1F) == 0x10) ? MMU_UR : MMU_PR;
+    return !checkAccess(id, map.addr, need) || (map.addr & MMU_XN);
+}
+
+void Cp15::raiseFetchFault(CpuId id, uint32_t address) {
+    // Take a prefetch abort for an instruction that couldn't be fetched
+    MmuMap &map = mmuMaps[id][address >> 12];
+    if (map.tag != mmuTags[id]) updateEntry(id, address);
+    throwFault(id, address, map.addr, false, true);
 }
 
 void Cp15::mmuInvalidate(CpuId id) {
@@ -84,14 +155,25 @@ void Cp15::mmuInvalidate(CpuId id) {
 }
 
 void Cp15::updateEntry(CpuId id, uint32_t address) {
-    // Cache an MMU read/write mapping with the current tag
+    // Cache an MMU mapping and its access permissions with the current tag
     MmuMap &map = mmuMaps[id][address >> 12];
-    address = mmuTranslate(id, address);
-    map.read = core.memory.memMap11[address >> 12].read;
-    map.write = core.memory.memMap11[address >> 12].write;
-    map.memTag = &core.memory.memMap11[address >> 12].tag;
-    map.addr = (address & ~0xFFF);
-    map.tag = mmuTags[id];
+    uint32_t flags;
+    uint32_t physical = mmuWalk(id, address, flags);
+    if (flags & MMU_VALID) {
+        map.read = core.memory.memMap11[physical >> 12].read;
+        map.write = core.memory.memMap11[physical >> 12].write;
+        map.memTag = &core.memory.memMap11[physical >> 12].tag;
+    }
+    else {
+        map.read = map.write = nullptr;
+        map.memTag = &nullTag;
+        physical = 0;
+    }
+    map.addr = physical | flags;
+
+    // Never cache a failed translation: hardware doesn't, and the OS has no
+    // reason to invalidate the TLB after mapping the page in
+    map.tag = (flags & MMU_VALID) ? mmuTags[id] : 0;
 }
 
 void Cp15::updateMap9(uint32_t start, uint32_t end) {
@@ -128,7 +210,12 @@ template <typename T> T Cp15::read(CpuId id, uint32_t address) {
         // Read from ARM11 virtual memory, updating the cache if necessary
         MmuMap &map = mmuMaps[id][address >> 12];
         if (map.tag != mmuTags[id]) updateEntry(id, address);
-        if (!(data = map.read)) address = map.addr | (address & 0xFFF);
+
+        // Take a data abort if the access isn't allowed
+        uint32_t need = ((core.arms[id].cpsr & 0x1F) == 0x10) ? MMU_UR : MMU_PR;
+        if (!checkAccess(id, map.addr, need))
+            throwFault(id, address, map.addr, false, false);
+        if (!(data = map.read)) address = (map.addr & ~0xFFF) | (address & 0xFFF);
     }
     else {
         // Read from ARM11 physical memory
@@ -161,7 +248,12 @@ template <typename T> void Cp15::write(CpuId id, uint32_t address, T value) {
         // Write to ARM11 virtual memory, updating the cache if necessary
         MmuMap &map = mmuMaps[id][address >> 12];
         if (map.tag != mmuTags[id]) updateEntry(id, address);
-        if (!(data = map.write)) address = map.addr | (address & 0xFFF);
+
+        // Take a data abort if the access isn't allowed
+        uint32_t need = ((core.arms[id].cpsr & 0x1F) == 0x10) ? MMU_UW : MMU_PW;
+        if (!checkAccess(id, map.addr, need))
+            throwFault(id, address, map.addr, true, false);
+        if (!(data = map.write)) address = (map.addr & ~0xFFF) | (address & 0xFFF);
         (*map.memTag)++;
 
 #if LOG_LEVEL > 3
@@ -221,6 +313,11 @@ uint32_t Cp15::readReg(CpuId id, uint8_t cn, uint8_t cm, uint8_t cp) {
             case 0x020000: return tlbBase0Regs[id]; // TLB base 0
             case 0x020001: return tlbBase1Regs[id]; // TLB base 1
             case 0x020002: return tlbCtrlRegs[id]; // TLB control
+            case 0x030000: return dacRegs[id]; // Domain access control
+            case 0x050000: return dfsr[id]; // Data fault status
+            case 0x050001: return ifsr[id]; // Instruction fault status
+            case 0x060000: return dfar[id]; // Data fault address
+            case 0x060002: return ifar[id]; // Instruction fault address
             case 0x070400: return physAddrRegs[id]; // Physical address
             case 0x0D0002: return threadIdRegs[id][0]; // Thread ID 0
             case 0x0D0003: return threadIdRegs[id][1]; // Thread ID 1
@@ -253,6 +350,11 @@ void Cp15::writeReg(CpuId id, uint8_t cn, uint8_t cm, uint8_t cp, uint32_t value
             case 0x020000: return writeTlbBase0(id, value); // TLB base 0
             case 0x020001: return writeTlbBase1(id, value); // TLB base 1
             case 0x020002: return writeTlbCtrl(id, value); // TLB control
+            case 0x030000: dacRegs[id] = value; return; // Domain access control
+            case 0x050000: dfsr[id] = value; return; // Data fault status
+            case 0x050001: ifsr[id] = value; return; // Instruction fault status
+            case 0x060000: dfar[id] = value; return; // Data fault address
+            case 0x060002: ifar[id] = value; return; // Instruction fault address
             case 0x070004: return writeWfi(id, value); // Wait for interrupt
             case 0x070501: return; // Invalidate i-cache line (stub)
             case 0x070601: return; // Invalidate d-cache line (stub)

@@ -24,6 +24,18 @@
 
 class Core;
 
+// Access info packed into the free low bits of MmuMap::addr, which is page-aligned
+enum MmuFlag {
+    MMU_PR = (1 << 0), // privileged read (and execute unless MMU_XN)
+    MMU_PW = (1 << 1), // privileged write
+    MMU_UR = (1 << 2), // user read (and execute unless MMU_XN)
+    MMU_UW = (1 << 3), // user write
+    MMU_XN = (1 << 4), // execute never
+    MMU_PAGE = (1 << 5), // second-level (page) entry rather than a section
+    MMU_VALID = (1 << 6), // translation succeeded
+    MMU_DOMAIN = 8 // 4-bit domain number at bits 11-8
+};
+
 struct MmuMap {
     uint8_t *read, *write;
     uint32_t *memTag;
@@ -51,8 +63,17 @@ public:
     uint32_t readReg(CpuId id, uint8_t cn, uint8_t cm, uint8_t cp);
     void writeReg(CpuId id, uint8_t cn, uint8_t cm, uint8_t cp, uint32_t value);
 
+    bool fetchWouldFault(CpuId id, uint32_t address);
+    void raiseFetchFault(CpuId id, uint32_t address);
+    void setFault(CpuId id, const struct CpuFault &fault);
+
 private:
     Core &core;
+
+    uint32_t dfsr[MAX_CPUS - 1] = {}, ifsr[MAX_CPUS - 1] = {};
+    uint32_t dfar[MAX_CPUS - 1] = {}, ifar[MAX_CPUS - 1] = {};
+    uint32_t dacRegs[MAX_CPUS - 1] = {};
+    uint32_t nullTag = 0; // stands in for memTag on entries with no backing memory
 
     MmuMap mmuMaps[MAX_CPUS - 1][0x100000] = {};
     TcmMap tcmMap[0x100000] = {};
@@ -77,7 +98,10 @@ private:
     uint32_t itcmReg = 0;
 
     uint32_t mmuTranslate(CpuId id, uint32_t address);
+    uint32_t mmuWalk(CpuId id, uint32_t address, uint32_t &flags);
     void updateEntry(CpuId id, uint32_t address);
+    bool checkAccess(CpuId id, uint32_t flags, uint32_t need);
+    void throwFault(CpuId id, uint32_t address, uint32_t flags, bool write, bool prefetch);
 
     void writeCtrl11(CpuId id, uint32_t value);
     void writeCtrl9(CpuId id, uint32_t value);
