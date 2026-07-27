@@ -20,6 +20,7 @@
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
 #include "b3_app.h"
+#include "debugger.h"
 
 enum AppEvent {
     UPDATE = 1
@@ -86,6 +87,14 @@ bool b3App::OnInit() {
     // Create the program's frame
     SetAppName("3Beans");
     frame = new b3Frame();
+
+    // Start the MCP debug server if a port is configured
+    if (const char *port = getenv("B3_MCP_PORT")) {
+        if (atoi(port) > 0) {
+            static B3Debugger debugger(frame);
+            debugger.start(atoi(port));
+        }
+    }
 
     // Set up the update timer
     timer = new wxTimer(this, UPDATE);

@@ -20,6 +20,11 @@
 #include <algorithm>
 #include "core.h"
 
+bool Core::traceOn = false;
+bool Core::traceFrozen = false;
+uint32_t Core::traceBuf[Core::TRACE_N * 3] = {};
+uint32_t Core::traceIdx = 0;
+
 Core::Core(std::string &cartPath, std::function<void()> *contextFunc): aes(*this), arms { ArmInterp(*this, ARM11A),
         ArmInterp(*this, ARM11B), ArmInterp(*this, ARM11C), ArmInterp(*this, ARM11D), ArmInterp(*this, ARM9) },
         cartridge(*this, cartPath), cdmas { Cdma(*this, CDMA0), Cdma(*this, CDMA1), Cdma(*this, XDMA) }, cp15(*this),

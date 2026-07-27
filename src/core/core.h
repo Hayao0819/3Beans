@@ -152,6 +152,31 @@ public:
     std::vector<Event> events;
     uint64_t globalCycles = 0;
 
+    // Debug rings of unimplemented-opcode / fault events (see debugger.h emu_faults)
+    struct Fault { uint32_t pc, addr; uint8_t cpu, kind, status; };
+    static const int MAX_FAULTS = 512;
+    Fault faults[MAX_FAULTS] = {}, firstFaults[MAX_FAULTS] = {};
+    std::atomic<uint32_t> faultCount{0};
+    void logFault(uint8_t kind, uint8_t cpu, uint32_t pc, uint32_t addr, uint8_t status = 0) {
+        uint32_t i = faultCount.fetch_add(1);
+        faults[i % MAX_FAULTS] = { pc, addr, cpu, kind, status };
+        if (i < MAX_FAULTS) firstFaults[i] = faults[i % MAX_FAULTS];
+    }
+
+    // ARM11 instruction trace, frozen when a user-mode CPU executes a zero opcode.
+    // Static so it survives the core being re-created mid-boot
+    static const int TRACE_N = 16384;
+    static bool traceOn, traceFrozen;
+    static uint32_t traceBuf[TRACE_N * 3], traceIdx;
+    static void traceStep(uint32_t pc, uint32_t cpsr, uint32_t core, bool freeze) {
+        if (!traceOn || traceFrozen) return;
+        uint32_t i = (traceIdx++ & (TRACE_N - 1)) * 3;
+        traceBuf[i] = pc;
+        traceBuf[i + 1] = cpsr;
+        traceBuf[i + 2] = core;
+        if (freeze) traceFrozen = true;
+    }
+
     Core(std::string &cartPath, std::function<void()> *contextFunc = nullptr);
     ~Core();
 
