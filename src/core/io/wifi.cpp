@@ -666,6 +666,9 @@ void Wifi::writeCmd(uint16_t mask, uint16_t value) {
     // Run the written command and send an interrupt for completion
     extInterrupt(0);
     switch (uint8_t cmd = wifiCmd & 0x3F) {
+        case 3: return pushResponse((0x1 << 16) | (cardStatus & 0x1FFF)); // SET_RELATIVE_ADDR
+        case 5: return pushResponse(0x90FF8000); // IO_SEND_OP_COND, one function and ready
+        case 7: return pushResponse(cardStatus); // SELECT_CARD
         case 52: return ioRwDirect(); // IO_RW_DIRECT
         case 53: return ioRwExtended(); // IO_RW_EXTENDED
 
