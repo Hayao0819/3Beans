@@ -32,6 +32,9 @@ class b3Frame: public wxFrame {
 public:
     Core *core = nullptr;
     std::atomic<bool> running{false};
+    std::atomic<bool> dbgPause{false};
+    std::atomic<int> dbgStep{0};
+    std::atomic<uint32_t> heldKeys{0}; // buttons re-pressed on each boot so early HID polls see them
     std::mutex mutex;
 
     b3Frame();
@@ -42,6 +45,8 @@ public:
     void releaseKey(int key);
     void pressScreen(int x, int y);
     void releaseScreen();
+    void startCore(bool full);
+    void stopCore(bool full);
 
 private:
     wxMenu *fileMenu, *systemMenu;
@@ -61,8 +66,6 @@ private:
     bool glSupport = true;
 
     void runCore();
-    void startCore(bool full);
-    void stopCore(bool full);
     void updateKeyStick();
 
     void insertCart(wxCommandEvent &event);
@@ -74,6 +77,7 @@ private:
     void setHardware(wxCommandEvent &event);
     void fpsLimiter(wxCommandEvent &event);
     void cartAutoBoot(wxCommandEvent &event);
+    void mute(wxCommandEvent &event);
     template <int i> void dspBackend(wxCommandEvent &event);
     void gpuSettings(wxCommandEvent &event);
     void pathSettings(wxCommandEvent &event);

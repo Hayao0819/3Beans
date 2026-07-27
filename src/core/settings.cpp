@@ -23,6 +23,7 @@
 namespace Settings {
     int fpsLimiter = 1;
     int cartAutoBoot = 0;
+    int mute = 0;
     int dspBackend = 0;
     int threadedGpu = 0;
     int gpuRenderer = 0;
@@ -40,6 +41,7 @@ namespace Settings {
     std::vector<Setting> settings = {
         Setting("fpsLimiter", &fpsLimiter, false),
         Setting("cartAutoBoot", &cartAutoBoot, false),
+        Setting("mute", &mute, false),
         Setting("dspBackend", &dspBackend, false),
         Setting("threadedGpu", &threadedGpu, false),
         Setting("gpuRenderer", &gpuRenderer, false),

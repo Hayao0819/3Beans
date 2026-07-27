@@ -35,6 +35,7 @@ enum FrameEvent {
     SET_HARDWARE,
     FPS_LIMITER,
     CART_AUTO_BOOT,
+    MUTE,
     DSP_INTERP,
     DSP_HLE,
     GPU_SETTINGS,
@@ -52,6 +53,7 @@ EVT_MENU(RESTART, b3Frame::restart)
 EVT_MENU(STOP, b3Frame::stop)
 EVT_MENU(SET_HARDWARE, b3Frame::setHardware)
 EVT_MENU(FPS_LIMITER, b3Frame::fpsLimiter)
+EVT_MENU(MUTE, b3Frame::mute)
 EVT_MENU(CART_AUTO_BOOT, b3Frame::cartAutoBoot)
 EVT_MENU(DSP_INTERP, b3Frame::dspBackend<0>)
 EVT_MENU(DSP_HLE, b3Frame::dspBackend<1>)
@@ -88,6 +90,7 @@ b3Frame::b3Frame(): wxFrame(nullptr, wxID_ANY, "3Beans") {
     wxMenu *settingsMenu = new wxMenu();
     settingsMenu->AppendCheckItem(FPS_LIMITER, "&FPS Limiter");
     settingsMenu->AppendCheckItem(CART_AUTO_BOOT, "&Cart Auto-Boot");
+    settingsMenu->AppendCheckItem(MUTE, "&Mute Audio");
     settingsMenu->AppendSubMenu(dspMenu, "&DSP Backend");
     settingsMenu->AppendSeparator();
     settingsMenu->Append(GPU_SETTINGS, "&GPU Settings");
@@ -129,6 +132,7 @@ b3Frame::b3Frame(): wxFrame(nullptr, wxID_ANY, "3Beans") {
     // Set the initial setting states
     settingsMenu->Check(FPS_LIMITER, Settings::fpsLimiter);
     settingsMenu->Check(CART_AUTO_BOOT, Settings::cartAutoBoot);
+    settingsMenu->Check(MUTE, Settings::mute);
     dspMenu->Check(DSP_INTERP + std::min(Settings::dspBackend, 1), true);
 
     // Prepare a joystick if one is connected
@@ -162,18 +166,32 @@ void b3Frame::Refresh() {
 }
 
 void b3Frame::runCore() {
-    // Run the emulator until stopped
-    while (running.load())
+    // Run the emulator until stopped, honoring debugger pause and step requests
+    while (running.load()) {
+        if (dbgPause.load() && dbgStep.load() <= 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
         core->runFrame();
+        if (dbgStep.load() > 0)
+            dbgStep.store(dbgStep.load() - 1);
+    }
 }
 
 void b3Frame::startCore(bool full) {
+    // A fresh run must not inherit a debugger pause from the previous core
+    dbgPause.store(false);
+    dbgStep.store(0);
+
     // Fully stop and restart the core, or handle errors
     if (full) {
         stopCore(true);
         try {
             mutex.lock();
             core = new Core(cartPath, glSupport ? &((b3CanvasOgl*)canvas)->contextFunc : nullptr);
+            for (int i = 0; i < 12; i++)
+                if (heldKeys.load() & (1u << i))
+                    core->input.pressKey(i);
             mutex.unlock();
         }
         catch (CoreError e) {
@@ -377,6 +395,12 @@ void b3Frame::fpsLimiter(wxCommandEvent &event) {
 void b3Frame::cartAutoBoot(wxCommandEvent &event) {
     // Toggle the cart auto-boot setting
     Settings::cartAutoBoot = !Settings::cartAutoBoot;
+    Settings::save();
+}
+
+void b3Frame::mute(wxCommandEvent &event) {
+    // Toggle audio muting
+    Settings::mute = !Settings::mute;
     Settings::save();
 }
 

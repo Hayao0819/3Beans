@@ -119,8 +119,8 @@ int b3App::audioCallback(const void *in, void *out, unsigned long count,
     uint32_t *samples = frame->core ? frame->core->csnd.getSamples(48000, count) : nullptr;
     frame->mutex.unlock();
 
-    // Copy samples to the output buffer or fill it with silence
-    if (samples)
+    // Copy samples to the output buffer, or fill it with silence when muted or idle
+    if (samples && !Settings::mute)
         memcpy(out, samples, count * sizeof(uint32_t));
     else
         memset(out, 0, count * sizeof(uint32_t));
