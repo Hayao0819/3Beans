@@ -259,6 +259,12 @@ void Interrupts::writeMpTarget(int i, uint8_t value) {
         mpTarget[i] = (value & 0xF);
 }
 
+void Interrupts::writeMpIcfg(int i, uint32_t mask, uint32_t value) {
+    // Write to one of the MP_ICFG registers, with software interrupt config fixed
+    if (i > 0)
+        mpIcfg[i] = (mpIcfg[i] & ~mask) | (value & mask);
+}
+
 void Interrupts::writeMpSoftIrq(CpuId id, uint32_t mask, uint32_t value) {
     // Verify the software interrupt type
     uint16_t type = (value & mask & 0x1FF);

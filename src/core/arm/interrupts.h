@@ -50,6 +50,7 @@ public:
     uint8_t readMpPriorityL(CpuId id, int i) { return mpPriorityL[id][i]; }
     uint8_t readMpPriorityG(int i) { return mpPriorityG[i - 0x20]; }
     uint8_t readMpTarget(CpuId id, int i);
+    uint32_t readMpIcfg(int i) { return mpIcfg[i]; }
     uint32_t readIrqIe() { return irqIe; }
     uint32_t readIrqIf() { return irqIf; }
 
@@ -66,6 +67,7 @@ public:
     void writeMpPriorityL(CpuId id, int i, uint8_t value);
     void writeMpPriorityG(int i, uint8_t value);
     void writeMpTarget(int i, uint8_t value);
+    void writeMpIcfg(int i, uint32_t mask, uint32_t value);
     void writeMpSoftIrq(CpuId id, uint32_t mask, uint32_t value);
     void writeIrqIe(uint32_t mask, uint32_t value);
     void writeIrqIf(uint32_t mask, uint32_t value);
@@ -86,6 +88,7 @@ private:
     uint8_t mpPriorityL[MAX_CPUS - 1][0x20] = {};
     uint8_t mpPriorityG[0x60] = {};
     uint8_t mpTarget[0x80] = {};
+    uint32_t mpIcfg[8] = { 0xAAAAAAAA };
     uint32_t irqIe = 0;
     uint32_t irqIf = 0;
 };

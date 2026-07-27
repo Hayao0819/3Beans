@@ -1061,6 +1061,14 @@ template <typename T> T Memory::ioRead(CpuId id, uint32_t address) {
                 DEF_IO08(0x17E0181D, data = core.interrupts.readMpTarget(id, 29)) // MP_TARGET29
                 DEF_IO08(0x17E0181E, data = core.interrupts.readMpTarget(id, 30)) // MP_TARGET30
                 DEF_IO08(0x17E0181F, data = core.interrupts.readMpTarget(id, 31)) // MP_TARGET31
+                DEF_IO32(0x17E01C00, data = core.interrupts.readMpIcfg(0)) // MP_ICFG0
+                DEF_IO32(0x17E01C04, data = core.interrupts.readMpIcfg(1)) // MP_ICFG1
+                DEF_IO32(0x17E01C08, data = core.interrupts.readMpIcfg(2)) // MP_ICFG2
+                DEF_IO32(0x17E01C0C, data = core.interrupts.readMpIcfg(3)) // MP_ICFG3
+                DEF_IO32(0x17E01C10, data = core.interrupts.readMpIcfg(4)) // MP_ICFG4
+                DEF_IO32(0x17E01C14, data = core.interrupts.readMpIcfg(5)) // MP_ICFG5
+                DEF_IO32(0x17E01C18, data = core.interrupts.readMpIcfg(6)) // MP_ICFG6
+                DEF_IO32(0x17E01C1C, data = core.interrupts.readMpIcfg(7)) // MP_ICFG7
                 DEF_IO08(0x17E01820, data = core.interrupts.readMpTarget(id, 32)) // MP_TARGET32
                 DEF_IO08(0x17E01821, data = core.interrupts.readMpTarget(id, 33)) // MP_TARGET33
                 DEF_IO08(0x17E01822, data = core.interrupts.readMpTarget(id, 34)) // MP_TARGET34

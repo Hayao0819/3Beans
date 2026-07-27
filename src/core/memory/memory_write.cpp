@@ -1348,6 +1348,14 @@ template <typename T> void Memory::ioWrite(CpuId id, uint32_t address, T value) 
                 DEF_IO08(0x17E0187D, core.interrupts.writeMpTarget(125, IO_PARAMS8)) // MP_TARGET125
                 DEF_IO08(0x17E0187E, core.interrupts.writeMpTarget(126, IO_PARAMS8)) // MP_TARGET126
                 DEF_IO08(0x17E0187F, core.interrupts.writeMpTarget(127, IO_PARAMS8)) // MP_TARGET127
+                DEF_IO32(0x17E01C00, core.interrupts.writeMpIcfg(0, IO_PARAMS)) // MP_ICFG0
+                DEF_IO32(0x17E01C04, core.interrupts.writeMpIcfg(1, IO_PARAMS)) // MP_ICFG1
+                DEF_IO32(0x17E01C08, core.interrupts.writeMpIcfg(2, IO_PARAMS)) // MP_ICFG2
+                DEF_IO32(0x17E01C0C, core.interrupts.writeMpIcfg(3, IO_PARAMS)) // MP_ICFG3
+                DEF_IO32(0x17E01C10, core.interrupts.writeMpIcfg(4, IO_PARAMS)) // MP_ICFG4
+                DEF_IO32(0x17E01C14, core.interrupts.writeMpIcfg(5, IO_PARAMS)) // MP_ICFG5
+                DEF_IO32(0x17E01C18, core.interrupts.writeMpIcfg(6, IO_PARAMS)) // MP_ICFG6
+                DEF_IO32(0x17E01C1C, core.interrupts.writeMpIcfg(7, IO_PARAMS)) // MP_ICFG7
                 DEF_IO32(0x17E01F00, core.interrupts.writeMpSoftIrq(id, IO_PARAMS)) // MP_SOFT_IRQ
             }
         }
