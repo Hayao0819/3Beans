@@ -33,7 +33,8 @@ wxEND_EVENT_TABLE()
 int b3App::audBufSize = 1024;
 int b3App::keyBinds[] = {
     'L', 'K', 'G', 'H', WXK_RIGHT, WXK_LEFT, WXK_UP, WXK_DOWN, // A, B, Select, Start, D-pad
-    'P', 'Q', 'O', 'I', 'D', 'A', 'W', 'S', WXK_SHIFT, WXK_SPACE // R, L, X, Y, L-stick, Home
+    'P', 'Q', 'O', 'I', 'D', 'A', 'W', 'S', WXK_SHIFT, WXK_SPACE, // R, L, X, Y, L-stick, Home
+    0 // Power, left unbound so it can't shut the guest down by accident
 };
 
 bool b3App::OnInit() {
@@ -60,7 +61,8 @@ bool b3App::OnInit() {
         Setting("keyLUp", &keyBinds[14], false),
         Setting("keyLDown", &keyBinds[15], false),
         Setting("keyLMod", &keyBinds[16], false),
-        Setting("keyHome", &keyBinds[17], false)
+        Setting("keyHome", &keyBinds[17], false),
+        Setting("keyPower", &keyBinds[18], false)
     };
     Settings::add(platSettings);
 

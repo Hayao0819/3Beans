@@ -22,7 +22,7 @@
 #include <portaudio.h>
 #include "b3_frame.h"
 
-#define MAX_KEYS 18
+#define MAX_KEYS 19
 
 class b3App: public wxApp {
 public:

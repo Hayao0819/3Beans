@@ -17,8 +17,9 @@
     along with 3Beans. If not, see <https://www.gnu.org/licenses/>.
 */
 
-// debug_dialog.h - debugger window over core/debug.h, the same inspection the MCP
-// server exposes. Non-modal, so it can be watched while the emulator runs.
+// debug_dialog.h - the Debug menu's window, over the same core/debug.h the MCP server
+// exposes. Non-modal, so it can be watched while the emulator runs. Break/Continue/Step
+// here freeze the CPUs without tearing the core down, which System > Pause does not.
 
 #pragma once
 
@@ -67,7 +68,6 @@ private:
     void resume(wxCommandEvent &event);
     void step(wxCommandEvent &event);
     void armTrace(wxCommandEvent &event);
-    void powerButton(wxCommandEvent &event);
     void close(wxCloseEvent &event);
     wxDECLARE_EVENT_TABLE();
 };

@@ -38,6 +38,7 @@ enum InputEvent {
     REMAP_LDOWN,
     REMAP_LMOD,
     REMAP_HOME,
+    REMAP_POWER,
     CLEAR_MAP,
     UPDATE_JOYSTICK
 };
@@ -61,6 +62,7 @@ EVT_BUTTON(REMAP_LUP, InputDialog::remapKey<14>)
 EVT_BUTTON(REMAP_LDOWN, InputDialog::remapKey<15>)
 EVT_BUTTON(REMAP_LMOD, InputDialog::remapKey<16>)
 EVT_BUTTON(REMAP_HOME, InputDialog::remapKey<17>)
+EVT_BUTTON(REMAP_POWER, InputDialog::remapKey<18>)
 EVT_BUTTON(CLEAR_MAP, InputDialog::clearMap)
 EVT_TIMER(UPDATE_JOYSTICK, InputDialog::updateJoystick)
 EVT_BUTTON(wxID_OK, InputDialog::confirm)
@@ -200,7 +202,7 @@ InputDialog::InputDialog(wxJoystick *joystick): wxDialog(nullptr, wxID_ANY, "Inp
         "D-Pad Right:", "D-Pad Left:", "D-Pad Up:", "D-Pad Down",
         "R Button:", "L Button:", "X Button:", "Y Button:",
         "Stick Right:", "Stick Left:", "Stick Up:", "Stick Down:",
-        "Stick Mod:", "Home Button:"
+        "Stick Mod:", "Home Button:", "Power Button:"
     };
 
     // Set up the button settings
@@ -238,6 +240,7 @@ InputDialog::InputDialog(wxJoystick *joystick): wxDialog(nullptr, wxID_ANY, "Inp
     rightSizer->Add(btnSizers[12], 1, wxEXPAND | wxALL, size / 8);
     rightSizer->Add(btnSizers[16], 1, wxEXPAND | wxALL, size / 8);
     rightSizer->Add(btnSizers[17], 1, wxEXPAND | wxALL, size / 8);
+    rightSizer->Add(btnSizers[18], 1, wxEXPAND | wxALL, size / 8);
 
     // Combine all the settings
     wxBoxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);

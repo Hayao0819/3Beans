@@ -83,7 +83,6 @@ private:
     void pathSettings(wxCommandEvent &event);
     void inputBindings(wxCommandEvent &event);
     void debugger(wxCommandEvent &event);
-    void powerButton(wxCommandEvent &event);
     void updateJoystick(wxTimerEvent &event);
     void close(wxCloseEvent &event);
     wxDECLARE_EVENT_TABLE();

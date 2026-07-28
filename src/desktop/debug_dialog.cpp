@@ -27,7 +27,6 @@ enum DebugEvent {
     RESUME,
     STEP,
     ARM_TRACE,
-    POWER_BUTTON,
     TICK
 };
 
@@ -37,7 +36,6 @@ EVT_BUTTON(PAUSE, DebugDialog::pause)
 EVT_BUTTON(RESUME, DebugDialog::resume)
 EVT_BUTTON(STEP, DebugDialog::step)
 EVT_BUTTON(ARM_TRACE, DebugDialog::armTrace)
-EVT_BUTTON(POWER_BUTTON, DebugDialog::powerButton)
 EVT_TIMER(TICK, DebugDialog::tick)
 EVT_NOTEBOOK_PAGE_CHANGED(wxID_ANY, DebugDialog::pageChanged)
 EVT_CLOSE(DebugDialog::close)
@@ -69,8 +67,8 @@ DebugDialog::DebugDialog(b3Frame *frame): wxFrame(nullptr, wxID_ANY, "Debugger",
     status = new wxStaticText(this, wxID_ANY, "");
     autoRefresh = new wxCheckBox(this, wxID_ANY, "Auto");
     bar->Add(status, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, 6);
-    bar->Add(new wxButton(this, PAUSE, "Pause"), 0, wxLEFT, 2);
-    bar->Add(new wxButton(this, RESUME, "Resume"), 0, wxLEFT, 2);
+    bar->Add(new wxButton(this, PAUSE, "Break"), 0, wxLEFT, 2);
+    bar->Add(new wxButton(this, RESUME, "Continue"), 0, wxLEFT, 2);
     bar->Add(new wxButton(this, STEP, "Step"), 0, wxLEFT, 2);
     bar->Add(autoRefresh, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 6);
     bar->Add(new wxButton(this, REFRESH, "Refresh"), 0, wxLEFT | wxRIGHT, 2);
@@ -164,7 +162,6 @@ wxPanel *DebugDialog::makeIo() {
     ioText = makeOutput(panel);
 
     wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(new wxButton(panel, POWER_BUTTON, "Press Power Button"), 0, wxALL, 4);
     sizer->Add(ioText, 1, wxEXPAND | wxALL, 4);
     panel->SetSizer(sizer);
     return panel;
@@ -186,7 +183,7 @@ void DebugDialog::refreshAll() {
     }
 
     wxString state = frame->running.load() ? "running" : "stopped";
-    if (frame->dbgPause.load()) state += " (paused)";
+    if (frame->dbgPause.load()) state += " (broken into)";
     status->SetLabel(wxString::Format("%s  fps=%d  %s", state, core->fps,
         core->n3dsMode ? "New3DS" : "Old3DS"));
 
@@ -264,13 +261,6 @@ void DebugDialog::step(wxCommandEvent &event) {
 void DebugDialog::armTrace(wxCommandEvent &event) {
     Debug::traceArm();
     traceText->ChangeValue("trace armed (records ARM11A, freezes on null-page entry)\n");
-}
-
-void DebugDialog::powerButton(wxCommandEvent &event) {
-    std::lock_guard<std::mutex> lock(frame->mutex);
-    if (!frame->core) return;
-    frame->core->input.pressPower();
-    frame->core->input.releasePower();
 }
 
 void DebugDialog::close(wxCloseEvent &event) {
