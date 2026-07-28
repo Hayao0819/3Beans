@@ -17,56 +17,52 @@
     along with 3Beans. If not, see <https://www.gnu.org/licenses/>.
 */
 
-// debug_dialog.h - the Debug menu's window, over the same core/debug.h the MCP server
-// exposes. Non-modal, so it can be watched while the emulator runs. Break/Continue/Step
-// here freeze the CPUs without tearing the core down, which System > Pause does not.
+// debug_window.h - one window per view over core/debug.h, the same inspection the MCP
+// server exposes. Each is independent and non-modal, so any number of them can be up at
+// once, including two memory views at different addresses. Run control lives in the
+// Debug menu instead, since it acts on the emulator rather than on any one view.
 
 #pragma once
 
 #include <wx/wx.h>
-#include <wx/notebook.h>
 
 class b3Frame;
 
-class DebugDialog: public wxFrame {
+enum DebugView {
+    VIEW_MEMORY = 0,
+    VIEW_CPU,
+    VIEW_FAULTS,
+    VIEW_TRACE,
+    VIEW_IO,
+    VIEW_COUNT
+};
+
+class DebugWindow: public wxFrame {
 public:
-    DebugDialog(b3Frame *frame);
+    DebugWindow(b3Frame *frame, DebugView view);
 
 private:
     b3Frame *frame;
+    DebugView view;
     wxTimer *timer;
-    wxNotebook *tabs;
 
-    wxTextCtrl *memAddr, *memLen, *memText;
-    wxChoice *memCpu;
-    wxCheckBox *memVirt, *memUnsafe;
-
-    wxChoice *cpuSel;
-    wxTextCtrl *cpuText;
-
-    wxTextCtrl *faultLimit, *faultText;
-    wxCheckBox *faultFirst;
-
-    wxTextCtrl *traceLimit, *traceText;
-
-    wxTextCtrl *ioText;
-
+    wxTextCtrl *out;
     wxStaticText *status;
     wxCheckBox *autoRefresh;
 
-    wxPanel *makeMemory();
-    wxPanel *makeCpu();
-    wxPanel *makeFaults();
-    wxPanel *makeTrace();
-    wxPanel *makeIo();
+    // Only the views that need them build these
+    wxTextCtrl *addrCtrl = nullptr;
+    wxTextCtrl *lenCtrl = nullptr;
+    wxChoice *cpuCtrl = nullptr;
+    wxCheckBox *virtCtrl = nullptr;
+    wxCheckBox *unsafeCtrl = nullptr;
+    wxCheckBox *firstCtrl = nullptr;
 
-    void refreshAll();
+    wxSizer *makeControls(wxWindow *parent);
+    void update();
+
     void refresh(wxCommandEvent &event);
     void tick(wxTimerEvent &event);
-    void pageChanged(wxBookCtrlEvent &event);
-    void pause(wxCommandEvent &event);
-    void resume(wxCommandEvent &event);
-    void step(wxCommandEvent &event);
     void armTrace(wxCommandEvent &event);
     void close(wxCloseEvent &event);
     wxDECLARE_EVENT_TABLE();

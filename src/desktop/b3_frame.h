@@ -82,7 +82,10 @@ private:
     void gpuSettings(wxCommandEvent &event);
     void pathSettings(wxCommandEvent &event);
     void inputBindings(wxCommandEvent &event);
-    void debugger(wxCommandEvent &event);
+    template <int i> void debugView(wxCommandEvent &event);
+    void dbgBreak(wxCommandEvent &event);
+    void dbgContinue(wxCommandEvent &event);
+    void dbgStepFrame(wxCommandEvent &event);
     void updateJoystick(wxTimerEvent &event);
     void close(wxCloseEvent &event);
     wxDECLARE_EVENT_TABLE();

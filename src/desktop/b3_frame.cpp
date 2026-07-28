@@ -18,7 +18,7 @@
 */
 
 #include "b3_frame.h"
-#include "debug_dialog.h"
+#include "debug_window.h"
 #include "b3_canvas_ogl.h"
 #include "b3_canvas_soft.h"
 #include "gpu_dialog.h"
@@ -34,7 +34,10 @@ enum FrameEvent {
     RESTART,
     STOP,
     SET_HARDWARE,
-    DEBUGGER,
+    DBG_BREAK,
+    DBG_CONTINUE,
+    DBG_STEP,
+    DBG_VIEW,
     FPS_LIMITER,
     CART_AUTO_BOOT,
     MUTE,
@@ -54,7 +57,14 @@ EVT_MENU(PAUSE, b3Frame::pause)
 EVT_MENU(RESTART, b3Frame::restart)
 EVT_MENU(STOP, b3Frame::stop)
 EVT_MENU(SET_HARDWARE, b3Frame::setHardware)
-EVT_MENU(DEBUGGER, b3Frame::debugger)
+EVT_MENU(DBG_BREAK, b3Frame::dbgBreak)
+EVT_MENU(DBG_CONTINUE, b3Frame::dbgContinue)
+EVT_MENU(DBG_STEP, b3Frame::dbgStepFrame)
+EVT_MENU(DBG_VIEW + 0, b3Frame::debugView<0>)
+EVT_MENU(DBG_VIEW + 1, b3Frame::debugView<1>)
+EVT_MENU(DBG_VIEW + 2, b3Frame::debugView<2>)
+EVT_MENU(DBG_VIEW + 3, b3Frame::debugView<3>)
+EVT_MENU(DBG_VIEW + 4, b3Frame::debugView<4>)
 EVT_MENU(FPS_LIMITER, b3Frame::fpsLimiter)
 EVT_MENU(MUTE, b3Frame::mute)
 EVT_MENU(CART_AUTO_BOOT, b3Frame::cartAutoBoot)
@@ -106,9 +116,17 @@ b3Frame::b3Frame(): wxFrame(nullptr, wxID_ANY, "3Beans") {
     menuBar->Append(systemMenu, "&System");
     menuBar->Append(settingsMenu, "&Settings");
 
-    // Set up the debug menu
+    // Set up the debug menu: run control, then a window per view
     wxMenu *debugMenu = new wxMenu();
-    debugMenu->Append(DEBUGGER, "&Debugger");
+    debugMenu->Append(DBG_BREAK, "&Break");
+    debugMenu->Append(DBG_CONTINUE, "&Continue");
+    debugMenu->Append(DBG_STEP, "&Step Frame");
+    debugMenu->AppendSeparator();
+    debugMenu->Append(DBG_VIEW + 0, "&Memory");
+    debugMenu->Append(DBG_VIEW + 1, "C&PU");
+    debugMenu->Append(DBG_VIEW + 2, "&Faults");
+    debugMenu->Append(DBG_VIEW + 3, "&Trace");
+    debugMenu->Append(DBG_VIEW + 4, "MCU && &GPIO");
     menuBar->Append(debugMenu, "&Debug");
     SetMenuBar(menuBar);
 
@@ -397,9 +415,23 @@ void b3Frame::stop(wxCommandEvent &event) {
     stopCore(true);
 }
 
-void b3Frame::debugger(wxCommandEvent &event) {
-    // Non-modal so the emulator can be watched while it runs
-    (new DebugDialog(this))->Show();
+template <int i> void b3Frame::debugView(wxCommandEvent &event) {
+    // Non-modal, and a fresh one each time so several can be watched side by side
+    (new DebugWindow(this, (DebugView)i))->Show();
+}
+
+void b3Frame::dbgBreak(wxCommandEvent &event) {
+    // Freeze the CPUs but leave the core standing, unlike stopping the run
+    dbgPause.store(true);
+}
+
+void b3Frame::dbgContinue(wxCommandEvent &event) {
+    dbgPause.store(false);
+}
+
+void b3Frame::dbgStepFrame(wxCommandEvent &event) {
+    if (dbgPause.load())
+        dbgStep.store(1);
 }
 
 void b3Frame::setHardware(wxCommandEvent &event) {
