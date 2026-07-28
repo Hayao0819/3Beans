@@ -48,6 +48,8 @@ private:
 
     wxTextCtrl *traceLimit, *traceText;
 
+    wxTextCtrl *ioText;
+
     wxStaticText *status;
     wxCheckBox *autoRefresh;
 
@@ -55,6 +57,7 @@ private:
     wxPanel *makeCpu();
     wxPanel *makeFaults();
     wxPanel *makeTrace();
+    wxPanel *makeIo();
 
     void refreshAll();
     void refresh(wxCommandEvent &event);
@@ -64,6 +67,7 @@ private:
     void resume(wxCommandEvent &event);
     void step(wxCommandEvent &event);
     void armTrace(wxCommandEvent &event);
+    void powerButton(wxCommandEvent &event);
     void close(wxCloseEvent &event);
     wxDECLARE_EVENT_TABLE();
 };

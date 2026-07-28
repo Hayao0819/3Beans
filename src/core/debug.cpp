@@ -153,10 +153,35 @@ std::vector<Cp15Reg> cp15Regs(Core *core, int cpu) {
 }
 
 std::string mcuState(Core *core) {
+    // The low bits are the buttons the guest's interrupt controller maps; the rest are
+    // LCD power events that nothing in a Linux device tree claims
+    static const char *names[6] = { "power press", "power release", "home press",
+        "home release", "wifi press", "wifi release" };
+    uint32_t flags = core->i2c.getMcuIrqFlags(), mask = core->i2c.getMcuIrqMask();
+    char buf[128];
+    snprintf(buf, sizeof(buf), "MCU IRQ flags = %08x\nMCU IRQ mask  = %08x\n\n", flags, mask);
+    std::string out = buf;
+    for (int i = 0; i < 6; i++) {
+        snprintf(buf, sizeof(buf), "  bit %d  %-14s %s%s\n", i, names[i],
+            (flags & BIT(i)) ? "pending" : "-", (mask & BIT(i)) ? "  (masked)" : "");
+        out += buf;
+    }
+    return out;
+}
+
+std::string gpioState(Core *core) {
+    // A line is asserted while its level matches the edge bit, which is what the guest's
+    // interrupt handler looks for; bank 3 line 9 is the MCU and line 1 the IR UART
+    std::string out = "bank  data  dir   edge  irqen  asserted\n";
     char buf[96];
-    snprintf(buf, sizeof(buf), "MCU IRQ flags = %08x\nMCU IRQ mask  = %08x\n",
-        core->i2c.getMcuIrqFlags(), core->i2c.getMcuIrqMask());
-    return buf;
+    for (int i = 0; i < GPIO_BANKS; i++) {
+        uint16_t data = core->gpio.readData(i), edge = core->gpio.readIrqEdge(i);
+        uint16_t enable = core->gpio.readIrqEnable(i);
+        snprintf(buf, sizeof(buf), "%-5d %04x  %04x  %04x  %04x   %04x\n", i, data,
+            core->gpio.readDir(i), edge, enable, (uint16_t)(~(data ^ edge) & enable));
+        out += buf;
+    }
+    return out;
 }
 
 std::string faultList(Core *core, int limit, bool first) {

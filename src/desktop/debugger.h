@@ -345,6 +345,13 @@ private:
             return withCore([&](Core *core) { return mcp::ToolResult::ok(Debug::mcuState(core)); });
         });
 
+        server.tool("emu_gpio", "Dump the GPIO banks. A line is asserted, and interrupts, while its "
+            "data bit matches its edge bit and its enable bit is set. Bank 3 line 9 is the MCU and "
+            "line 1 the IR UART, both active low.",
+            noArgs, [this](const mcp::Json&) {
+            return withCore([&](Core *core) { return mcp::ToolResult::ok(Debug::gpioState(core)); });
+        });
+
         server.tool("emu_power", "Press the 3DS power button, which the MCU reports as KEY_POWER. "
             "action: tap, press, or release.",
             "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"default\":\"tap\"},"
