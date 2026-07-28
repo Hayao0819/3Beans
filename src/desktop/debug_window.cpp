@@ -52,7 +52,8 @@ DebugWindow::DebugWindow(b3Frame *frame, DebugView view):
     out->SetFont(wxFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE)));
 
     status = new wxStaticText(panel, wxID_ANY, "");
-    autoRefresh = new wxCheckBox(panel, wxID_ANY, "Auto");
+    autoRefresh = new wxCheckBox(panel, wxID_ANY, "Live");
+    autoRefresh->SetValue(true);
 
     wxBoxSizer *bar = new wxBoxSizer(wxHORIZONTAL);
     bar->Add(status, 1, wxALIGN_CENTER_VERTICAL);
@@ -121,10 +122,21 @@ wxSizer *DebugWindow::makeControls(wxWindow *parent) {
     return row;
 }
 
+// Rewriting the control scrolls it back to the top, so leave it alone when the text
+// has not moved, and put the view back where it was when it has
+void DebugWindow::setText(const wxString &text) {
+    if (out->GetValue() == text) return;
+    long insertion = out->GetInsertionPoint();
+    out->ChangeValue(text);
+    out->SetInsertionPoint(std::min(insertion, (long)text.size()));
+    out->ShowPosition(out->GetInsertionPoint());
+}
+
 void DebugWindow::update() {
     // The trace ring outlives the core, so it can be read with nothing booted
     if (view == VIEW_TRACE) {
-        out->ChangeValue(Debug::traceList(wxAtoi(lenCtrl->GetValue())));
+        status->SetLabel(Core::traceOn ? (Core::traceFrozen ? "frozen" : "recording") : "not armed");
+        setText(Debug::traceList(wxAtoi(lenCtrl->GetValue())));
         return;
     }
 
@@ -132,6 +144,7 @@ void DebugWindow::update() {
     Core *core = frame->core;
     if (!core) {
         status->SetLabel("no core booted");
+        setText("");
         return;
     }
 
@@ -148,12 +161,12 @@ void DebugWindow::update() {
         if (len <= 0 || len > 0x10000) len = 256;
         int cpu = cpuCtrl->GetSelection();
         if (unsafeCtrl->IsChecked() && !virtCtrl->IsChecked()) {
-            out->ChangeValue(Debug::rawDump(core, cpu, addr, len));
+            setText(Debug::rawDump(core, cpu, addr, len));
             break;
         }
         std::string error;
         std::string dump = Debug::hexDump(core, cpu, addr, len, virtCtrl->IsChecked(), error);
-        out->ChangeValue(error.empty() ? dump : error + "\n" + dump);
+        setText(error.empty() ? dump : error + "\n" + dump);
         break;
     }
 
@@ -161,7 +174,7 @@ void DebugWindow::update() {
         int cpu = cpuCtrl->GetSelection();
         Debug::CpuState s = Debug::cpuState(core, cpu);
         if (!s.valid) {
-            out->ChangeValue("cpu not initialized\n");
+            setText("cpu not initialized\n");
             break;
         }
         wxString text;
@@ -171,17 +184,16 @@ void DebugWindow::update() {
             s.cpsr, s.cpsr & 0x1F, (s.cpsr & BIT(5)) ? "THUMB" : "ARM", s.halted);
         for (const auto &r : Debug::cp15Regs(core, cpu))
             text += wxString::Format("%-5s = %08x\n", r.name, r.value);
-        out->ChangeValue(text);
+        setText(text);
         break;
     }
 
     case VIEW_FAULTS:
-        out->ChangeValue(Debug::faultList(core, wxAtoi(lenCtrl->GetValue()),
-            firstCtrl->IsChecked()));
+        setText(Debug::faultList(core, wxAtoi(lenCtrl->GetValue()), firstCtrl->IsChecked()));
         break;
 
     case VIEW_IO:
-        out->ChangeValue(Debug::mcuState(core) + "\n" + Debug::gpioState(core));
+        setText(Debug::mcuState(core) + "\n" + Debug::gpioState(core));
         break;
 
     default:
@@ -199,7 +211,7 @@ void DebugWindow::tick(wxTimerEvent &event) {
 
 void DebugWindow::armTrace(wxCommandEvent &event) {
     Debug::traceArm();
-    out->ChangeValue("trace armed (records ARM11A, freezes on null-page entry)\n");
+    setText("trace armed (records ARM11A, freezes on null-page entry)\n");
 }
 
 void DebugWindow::close(wxCloseEvent &event) {

@@ -59,6 +59,7 @@ private:
     wxCheckBox *firstCtrl = nullptr;
 
     wxSizer *makeControls(wxWindow *parent);
+    void setText(const wxString &text);
     void update();
 
     void refresh(wxCommandEvent &event);
