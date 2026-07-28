@@ -23,8 +23,8 @@
 
 class Core;
 
-// The five banks at 0x10147000. Only banks 1 and 3 can interrupt, and only
-// bank 3's lines have a GIC interrupt each, starting at 0x48 for line 0.
+// The five banks at 0x10147000, named as the device tree orders them. Only banks 1
+// and 3 can interrupt, and each of their lines has its own GIC interrupt.
 enum GpioBank {
     GPIO_BANK0 = 0,
     GPIO_BANK1,
@@ -53,8 +53,9 @@ public:
 private:
     Core &core;
 
-    // Idle high, since the lines the 3DS wires up are active low
-    uint16_t data[GPIO_BANKS] = { 0xFFFF, 0x00FF, 0xFFFF, 0xFFFF, 0xFFFF };
+    // Power-on values per 3dbrew, except that bank 3 bit 9 starts released: that is
+    // the MCU's own line and the dump it was taken from had an interrupt pending
+    uint16_t data[GPIO_BANKS] = { 0x0003, 0x0002, 0x0000, 0x0FFB, 0x0000 };
     uint16_t dir[GPIO_BANKS] = {};
     uint16_t edge[GPIO_BANKS] = {};
     uint16_t enable[GPIO_BANKS] = {};

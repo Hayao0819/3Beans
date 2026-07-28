@@ -54,13 +54,18 @@ void Gpio::setLine(int i, int line, bool high) {
 }
 
 void Gpio::updateIrqs(int i) {
-    // A line is asserted while its level matches the edge bit, and interrupts on the
-    // transition into that state; bank 3 has one GIC interrupt per line from 0x48
+    // A line is asserted while its level matches the edge bit the guest wrote, and the
+    // GIC latches on the transition into that state, one interrupt per line
     uint16_t state = ~(data[i] ^ edge[i]) & enable[i];
     uint16_t rising = state & ~pending[i];
     pending[i] = state;
-    if (i != GPIO_BANK3) return;
-    for (int j = 0; j < 12; j++)
-        if (rising & BIT(j))
-            core.interrupts.sendInterrupt(ARM11, 0x48 + j);
+    if (i == GPIO_BANK1) {
+        if (rising & BIT(0)) core.interrupts.sendInterrupt(ARM11, 0x64);
+        if (rising & BIT(1)) core.interrupts.sendInterrupt(ARM11, 0x66);
+    }
+    else if (i == GPIO_BANK3) {
+        for (int j = 0; j < 12; j++)
+            if (rising & BIT(j))
+                core.interrupts.sendInterrupt(ARM11, 0x68 + j);
+    }
 }

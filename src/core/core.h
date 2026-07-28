@@ -151,6 +151,9 @@ public:
     Y2r y2rs[2];
 
     std::atomic<bool> running{false};
+    // 1 when the guest has asked the MCU to power off, 2 to reboot
+    std::atomic<int> powerOff{0};
+
     std::vector<Event> events;
     uint64_t globalCycles = 0;
 

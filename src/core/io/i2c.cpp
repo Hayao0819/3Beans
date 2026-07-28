@@ -46,8 +46,10 @@ void I2c::updateMcuRam() {
 void I2c::mcuInterrupt(uint32_t mask) {
     // Set MCU interrupt flags and trigger if a set flag is enabled
     if ((mcuIrqFlags |= mask) & ~mcuIrqMask) {
+        // 0x71 is GPIO3 line 9's own interrupt, so driving the line raises it as well;
+        // keep sending it directly for guests that never configure the GPIO block
         core.interrupts.sendInterrupt(ARM11, 0x71);
-        core.gpio.setLine(GPIO_BANK3, 9, false); // The MCU also pulls its line low
+        core.gpio.setLine(GPIO_BANK3, 9, false);
     }
 }
 
@@ -105,6 +107,7 @@ void I2c::writeMcu(uint8_t value) {
         case 0x19: return writeMcuIrqMask(1, value);
         case 0x1A: return writeMcuIrqMask(2, value);
         case 0x1B: return writeMcuIrqMask(3, value);
+        case 0x20: return writeMcuPower(value);
         case 0x22: return writeMcuLcdPower(value);
         case 0x60: return writeMcuRamIdx(value);
         case 0x61: return writeMcuRamData(value);
@@ -160,6 +163,14 @@ void I2c::writeMcuIrqMask(int i, uint8_t value) {
     // Write part of the MCU interrupt mask
     mcuIrqMask = (mcuIrqMask & ~(0xFF << (i << 3))) | (value << (i << 3));
     mcuInterrupt(0);
+}
+
+void I2c::writeMcuPower(uint8_t value) {
+    // Cut or cycle power the way the MCU does, which is what ends a guest's shutdown
+    if (value & BIT(0))
+        core.powerOff.store(1);
+    else if (value & BIT(2))
+        core.powerOff.store(2);
 }
 
 void I2c::writeMcuLcdPower(uint8_t value) {

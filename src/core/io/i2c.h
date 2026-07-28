@@ -33,6 +33,10 @@ public:
     uint32_t getMcuIrqFlags() { return mcuIrqFlags; }
     uint32_t getMcuIrqMask() { return mcuIrqMask; }
 
+private:
+    void writeMcuPower(uint8_t value);
+public:
+
     uint8_t readBusData(int i) { return i2cBusData[i]; }
     uint8_t readBusCnt(int i) { return i2cBusCnt[i]; }
 

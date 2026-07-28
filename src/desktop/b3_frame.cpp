@@ -180,6 +180,11 @@ void b3Frame::runCore() {
             continue;
         }
         core->runFrame();
+        if (int off = core->powerOff.exchange(0)) {
+            // The guest cut its own power, so end the run the way the hardware would
+            CallAfter([this, off] { off == 2 ? startCore(true) : stopCore(true); });
+            return;
+        }
         if (dbgStep.load() > 0)
             dbgStep.store(dbgStep.load() - 1);
     }
