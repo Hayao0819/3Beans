@@ -45,8 +45,10 @@ void I2c::updateMcuRam() {
 
 void I2c::mcuInterrupt(uint32_t mask) {
     // Set MCU interrupt flags and trigger if a set flag is enabled
-    if ((mcuIrqFlags |= mask) & ~mcuIrqMask)
+    if ((mcuIrqFlags |= mask) & ~mcuIrqMask) {
         core.interrupts.sendInterrupt(ARM11, 0x71);
+        core.gpio.setLine(GPIO_BANK3, 9, false); // The MCU also pulls its line low
+    }
 }
 
 uint8_t I2c::readMcu() {
@@ -115,9 +117,11 @@ void I2c::writeMcu(uint8_t value) {
 }
 
 uint8_t I2c::readMcuIrqFlags(int i) {
-    // Read MCU interrupt flags and clear them
+    // Read MCU interrupt flags and clear them, releasing the line once none are left
     uint8_t value = mcuIrqFlags >> (i << 3);
     mcuIrqFlags &= ~(0xFF << (i << 3));
+    if (!(mcuIrqFlags & ~mcuIrqMask))
+        core.gpio.setLine(GPIO_BANK3, 9, true);
     return value;
 }
 

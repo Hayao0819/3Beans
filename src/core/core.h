@@ -42,6 +42,7 @@
 #include "gpu/gpu.h"
 #include "gpu/pdc.h"
 #include "io/cartridge.h"
+#include "io/gpio.h"
 #include "io/i2c.h"
 #include "io/input.h"
 #include "io/pxi.h"
@@ -133,6 +134,7 @@ public:
     Csnd csnd;
     Dsp *dsp = nullptr;
     Gpu gpu;
+    Gpio gpio;
     I2c i2c;
     Input input;
     Interrupts interrupts;

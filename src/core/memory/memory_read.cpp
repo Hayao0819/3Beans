@@ -251,6 +251,17 @@ template <typename T> T Memory::ioRead(CpuId id, uint32_t address) {
             DEF_IO08(0x10144001, data = core.i2c.readBusCnt(1)) // I2C_BUS1_CNT
             DEF_IO32(0x10145000, data = core.csnd.readSndexcnt()) // CODEC_SNDEXCNT
             DEF_IO16(0x10146000, data = core.input.readHidPad()) // HID_PAD
+            DEF_IO16(0x10147000, data = core.gpio.readData(GPIO_BANK0)) // GPIO0_DATA
+            DEF_IO08(0x10147010, data = core.gpio.readData(GPIO_BANK1)) // GPIO1_DATA
+            DEF_IO08(0x10147011, data = core.gpio.readDir(GPIO_BANK1)) // GPIO1_DIR
+            DEF_IO08(0x10147012, data = core.gpio.readIrqEdge(GPIO_BANK1)) // GPIO1_IRQEDGE
+            DEF_IO08(0x10147013, data = core.gpio.readIrqEnable(GPIO_BANK1)) // GPIO1_IRQENABLE
+            DEF_IO16(0x10147014, data = core.gpio.readData(GPIO_BANK2)) // GPIO2_DATA
+            DEF_IO16(0x10147020, data = core.gpio.readData(GPIO_BANK3)) // GPIO3_DATA
+            DEF_IO16(0x10147022, data = core.gpio.readDir(GPIO_BANK3)) // GPIO3_DIR
+            DEF_IO16(0x10147024, data = core.gpio.readIrqEdge(GPIO_BANK3)) // GPIO3_IRQEDGE
+            DEF_IO16(0x10147026, data = core.gpio.readIrqEnable(GPIO_BANK3)) // GPIO3_IRQENABLE
+            DEF_IO16(0x10147028, data = core.gpio.readData(GPIO_BANK4)) // GPIO4_DATA
             DEF_IO08(0x10148000, data = core.i2c.readBusData(2)) // I2C_BUS2_DATA
             DEF_IO08(0x10148001, data = core.i2c.readBusCnt(2)) // I2C_BUS2_CNT
             DEF_IO08(0x10161000, data = core.i2c.readBusData(0)) // I2C_BUS0_DATA

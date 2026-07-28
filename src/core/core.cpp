@@ -27,7 +27,7 @@ uint32_t Core::traceIdx = 0;
 
 Core::Core(std::string &cartPath, std::function<void()> *contextFunc): aes(*this), arms { ArmInterp(*this, ARM11A),
         ArmInterp(*this, ARM11B), ArmInterp(*this, ARM11C), ArmInterp(*this, ARM11D), ArmInterp(*this, ARM9) },
-        cartridge(*this, cartPath), cdmas { Cdma(*this, CDMA0), Cdma(*this, CDMA1), Cdma(*this, XDMA) }, cp15(*this),
+        cartridge(*this, cartPath), cdmas { Cdma(*this, CDMA0), Cdma(*this, CDMA1), Cdma(*this, XDMA) }, cp15(*this), gpio(*this),
         csnd(*this), gpu(*this, contextFunc), i2c(*this), input(*this), interrupts(*this), memory(*this),
         ndma(*this), pdc(*this), pxi(*this), rsa(*this), sdMmcs { SdMmc(*this), SdMmc(*this) }, shas { Sha(*this,
         0), Sha(*this, 1) }, timers(*this), vfp11s { Vfp11Interp(*this, ARM11A), Vfp11Interp(*this, ARM11B),

@@ -403,6 +403,14 @@ template <typename T> void Memory::ioWrite(CpuId id, uint32_t address, T value) 
             DEF_IO08(0x10144000, core.i2c.writeBusData(1, IO_PARAMS8)) // I2C_BUS1_DATA
             DEF_IO08(0x10144001, core.i2c.writeBusCnt(1, IO_PARAMS8)) // I2C_BUS1_CNT
             DEF_IO32(0x10145000, core.csnd.writeSndexcnt(IO_PARAMS)) // CODEC_SNDEXCNT
+            DEF_IO08(0x10147010, core.gpio.writeData(GPIO_BANK1, 0xFF, IO_PARAMS8)) // GPIO1_DATA
+            DEF_IO08(0x10147011, core.gpio.writeDir(GPIO_BANK1, 0xFF, IO_PARAMS8)) // GPIO1_DIR
+            DEF_IO08(0x10147012, core.gpio.writeIrqEdge(GPIO_BANK1, 0xFF, IO_PARAMS8)) // GPIO1_IRQEDGE
+            DEF_IO08(0x10147013, core.gpio.writeIrqEnable(GPIO_BANK1, 0xFF, IO_PARAMS8)) // GPIO1_IRQENABLE
+            DEF_IO16(0x10147020, core.gpio.writeData(GPIO_BANK3, IO_PARAMS)) // GPIO3_DATA
+            DEF_IO16(0x10147022, core.gpio.writeDir(GPIO_BANK3, IO_PARAMS)) // GPIO3_DIR
+            DEF_IO16(0x10147024, core.gpio.writeIrqEdge(GPIO_BANK3, IO_PARAMS)) // GPIO3_IRQEDGE
+            DEF_IO16(0x10147026, core.gpio.writeIrqEnable(GPIO_BANK3, IO_PARAMS)) // GPIO3_IRQENABLE
             DEF_IO08(0x10148000, core.i2c.writeBusData(2, IO_PARAMS8)) // I2C_BUS2_DATA
             DEF_IO08(0x10148001, core.i2c.writeBusCnt(2, IO_PARAMS8)) // I2C_BUS2_CNT
             DEF_IO08(0x10161000, core.i2c.writeBusData(0, IO_PARAMS8)) // I2C_BUS0_DATA
